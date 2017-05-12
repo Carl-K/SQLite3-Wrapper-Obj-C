@@ -22,9 +22,11 @@ static NSString *errorDomain = @"SQLite3ErrorDomain";
         NSURL *fileURLDeleteLastPathComponent = fileURLIn.URLByDeletingLastPathComponent;
         
         NSString *localizedDescription = [[NSString alloc] initWithFormat:@"FILE %@ DOES NOT EXIST AT PATH %@", fileURLIn.lastPathComponent, fileURLDeleteLastPathComponent.absoluteString];
-        NSDictionary *userInfo = @{@"localizedDescription" : localizedDescription};
+        NSDictionary *userInfo = @{NSLocalizedDescriptionKey : localizedDescription};
         
         (*errorIn) = [[NSError alloc] initWithDomain:NSCocoaErrorDomain code:NSFileNoSuchFileError userInfo:userInfo];
+        
+        [self doError:errorIn withDomain:NSCocoaErrorDomain withCode:NSFileNoSuchFileError withUserInfo:userInfo];
         
         return nil;
     }
@@ -100,21 +102,32 @@ static NSString *errorDomain = @"SQLite3ErrorDomain";
             
             if (step != SQLITE_DONE && step != SQLITE_OK)
             {
-                [self doError:errorIn withCode:step];
+                //error running query
+                
+                NSString *localizedDescription = [[NSString alloc] initWithFormat:@"ERROR COMPLETING QUERY - SQL ERROR CODE : %i", step];
+                NSDictionary *userInfo = @{NSLocalizedDescriptionKey : localizedDescription};
+                
+                [self doError:errorIn withDomain:errorDomain withCode:step withUserInfo:userInfo];
             }
         }
         else
         {
             //can't run query
             
-            [self doError:errorIn withCode:prepare];
+            NSString *localizedDescription = [[NSString alloc] initWithFormat:@"ERROR PREPARING QUERY - SQL ERROR CODE : %i", prepare];
+            NSDictionary *userInfo = @{NSLocalizedDescriptionKey : localizedDescription};
+            
+            [self doError:errorIn withDomain:errorDomain withCode:prepare withUserInfo:userInfo];
         }
     }
     else
     {
         //can't open db
+
+        NSString *localizedDescription = [[NSString alloc] initWithFormat:@"ERROR OPENING DATABASE - SQL ERROR CODE : %i", open];
+        NSDictionary *userInfo = @{NSLocalizedDescriptionKey : localizedDescription};
         
-        [self doError:errorIn withCode:open];
+        [self doError:errorIn withDomain:errorDomain withCode:open withUserInfo:userInfo];
     }
     
     sqlite3_close(sqlite3Database);
@@ -125,11 +138,11 @@ static NSString *errorDomain = @"SQLite3ErrorDomain";
     return rowsResult;
 }
 
--(void) doError: (NSError **)errorIn withCode: (int) errorCodeIn
+-(void) doError: (NSError **)errorIn withDomain: (NSString *) domainIn withCode: (int) errorCodeIn withUserInfo: (NSDictionary *) userInfoIn
 {
     if (errorIn)
     {
-        (*errorIn) = [[NSError alloc] initWithDomain:errorDomain code:errorCodeIn userInfo:nil];
+        (*errorIn) = [[NSError alloc] initWithDomain:domainIn code:errorCodeIn userInfo:userInfoIn];
     }
     
     rowsResult = nil;
